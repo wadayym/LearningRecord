@@ -19,5 +19,5 @@ Azure Portal で以下を設定：
 
 6. デプロイ確認
 - GitHub Actions のログで成功を確認し、
-https://record-wadayym.azurewebsites.net にアクセスして動作確認
+https://time-tracking-wadayym.azurewebsites.net にアクセスして動作確認
 
