@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>学習・ピアノ記録</title>
+    <title>学習・練習記録</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f4f7f6; }
-        .card { background: white; padding: 20px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 300px; }
-        .status { font-weight: bold; color: #e74c3c; margin: 20px 0; }
-        .time-display { font-size: 1.2em; margin: 10px 0; }
-        select, button { padding: 10px; font-size: 1em; margin: 5px; cursor: pointer; }
-        .btn-start { background-color: #2ecc71; color: white; border: none; border-radius: 5px; }
-        .btn-stop { background-color: #e74c3c; color: white; border: none; border-radius: 5px; }
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f4f7f6; color: #333; }
+        .card { background: white; padding: 20px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 350px; }
+        .status { font-weight: bold; color: #e74c3c; margin: 20px 0; font-size: 1.2em; }
+        .time-display { font-size: 1.3em; margin: 15px 0; background: #f9f9f9; padding: 10px; border-radius: 8px; }
+        .time-val { font-size: 1.5em; font-weight: bold; color: #2c3e50; }
+        select, button { padding: 12px; font-size: 1em; margin: 5px; cursor: pointer; }
+        .btn-start { background-color: #2ecc71; color: white; border: none; border-radius: 5px; width: 160px; }
+        .btn-stop { background-color: #e74c3c; color: white; border: none; border-radius: 5px; width: 200px; }
     </style>
 </head>
 <body>
@@ -19,7 +20,6 @@
 <div class="card">
     <h2>学習・練習記録</h2>
 
-    <!-- 日付選択 -->
     <form method="get" action="/">
         <select name="date" onchange="this.form.submit()">
             {% for date in date_options %}
@@ -28,43 +28,71 @@
         </select>
     </form>
 
-    <hr>
-
-    <!-- 時間表示 -->
     <div class="time-display">
-        <p>英語学習: {{ record.english }} 分</p>
-        <p>ピアノ練習: {{ record.piano }} 分</p>
+        <p>英語学習: <span id="eng-display" class="time-val">{{ record.english }}</span> 分</p>
+        <p>ピアノ練習: <span id="piano-display" class="time-val">{{ record.piano }}</span> 分</p>
     </div>
 
-    <hr>
-
-    <!-- ステータスと操作 -->
     {% if active_session %}
         <div class="status">
-            {{ "英語学習中" if active_session.type == 'english' else "ピアノ練習中" }}
-            <br><small>(最大3時間で自動停止します)</small>
+            <span id="active-type-text">
+                {{ "英語学習中" if active_session.type == 'english' else "ピアノ練習中" }}
+            </span>
+            <br>
+            <span id="timer" style="font-size: 0.8em; color: #7f8c8d;">経過時間: 00:00:00</span>
         </div>
         <form method="post" action="/stop">
-            <button type="submit" class="btn-stop">終了する</button>
+            <button type="submit" class="btn-stop">終了して保存</button>
         </form>
     {% else %}
-        <form method="post" action="/start" style="display: inline-block;">
-            <input type="hidden" name="type" value="english">
-            <button type="submit" class="btn-start">英語学習 開始</button>
-        </form>
-        <form method="post" action="/start" style="display: inline-block;">
-            <input type="hidden" name="type" value="piano">
-            <button type="submit" class="btn-start">ピアノ練習 開始</button>
-        </form>
+        <div style="margin-top: 20px;">
+            <form method="post" action="/start" style="display: inline-block;">
+                <input type="hidden" name="type" value="english">
+                <button type="submit" class="btn-start">英語学習 開始</button>
+            </form>
+            <form method="post" action="/start" style="display: inline-block;">
+                <input type="hidden" name="type" value="piano">
+                <button type="submit" class="btn-start">ピアノ練習 開始</button>
+            </form>
+        </div>
     {% endif %}
 </div>
 
 <script>
-    // 実行中の場合は1分ごとにリロードして自動終了や表示を更新
     {% if active_session %}
-    setTimeout(function(){
-        location.reload();
-    }, 60000); 
+    const startTime = new Date("{{ active_session.start_time }}");
+    const sessionType = "{{ active_session.type }}";
+    const baseMinutes = parseInt(sessionType === 'english' ? "{{ record.english }}" : "{{ record.piano }}");
+    const displayElement = document.getElementById(sessionType === 'english' ? 'eng-display' : 'piano-display');
+    const timerElement = document.getElementById('timer');
+
+    function updateTimer() {
+        const now = new Date();
+        const diffSec = Math.floor((now - startTime) / 1000);
+        
+        if (diffSec >= 3 * 3600) {
+            location.reload(); // 3時間経過でリロード（サーバー側で自動終了される）
+            return;
+        }
+
+        // 画面上の合計分を更新
+        const currentTotalMin = baseMinutes + Math.floor(diffSec / 60);
+        displayElement.innerText = currentTotalMin;
+
+        // 経過時間を hh:mm:ss 形式で表示
+        const h = String(Math.floor(diffSec / 3600)).padStart(2, '0');
+        const m = String(Math.floor((diffSec % 3600) / 60)).padStart(2, '0');
+        const s = String(diffSec % 60).padStart(2, '0');
+        timerElement.innerText = `経過時間: ${h}:${m}:${s}`;
+    }
+
+    // 1秒ごとに表示を更新
+    setInterval(updateTimer, 1000);
+
+    // 1分ごとにバックグラウンドでサーバーに保存
+    setInterval(function() {
+        fetch('/update_midway', { method: 'POST' });
+    }, 60000);
     {% endif %}
 </script>
 

@@ -2,14 +2,13 @@ import os
 import json
 from datetime import datetime, timedelta
 import pytz
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 
 app = Flask(__name__)
 
-# 設定
 DATA_FILE = 'data.json'
 JST = pytz.timezone('Asia/Tokyo')
-MAX_SECONDS = 3 * 60 * 60  # 3時間
+MAX_SECONDS = 3 * 60 * 60
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -24,64 +23,49 @@ def save_data(data):
 def get_now_jst():
     return datetime.now(JST)
 
-def process_session_end(data):
-    """セッションを終了し、時間を記録する（3時間制限と日付またぎ対応）"""
-    session = data["active_session"]
-    if not session:
-        return
-
-    start_time = datetime.fromisoformat(session["start_time"])
-    now = get_now_jst()
-    
-    # 最大3時間までの制限
-    end_time = min(now, start_time + timedelta(seconds=MAX_SECONDS))
-    
-    duration = (end_time - start_time).total_seconds()
-    
-    # 日付をまたぐ場合の計算
-    current_dt = start_time
-    while current_dt.date() <= end_time.date():
-        # その日の終わり（23:59:59）か、終了時刻の早い方
+def calculate_and_add(data, session_type, start_dt, end_dt):
+    """時間を計算して日付ごとに配分する共通ロジック"""
+    current_dt = start_dt
+    while current_dt < end_dt:
         day_end = datetime.combine(current_dt.date(), datetime.max.time()).replace(tzinfo=JST)
-        actual_end = min(end_time, day_end)
+        actual_end = min(end_dt, day_end)
         
-        day_sec = (actual_end - current_dt).total_seconds()
+        duration_sec = (actual_end - current_dt).total_seconds()
         date_str = current_dt.strftime('%Y-%m-%d')
         
         if date_str not in data["records"]:
             data["records"][date_str] = {"english": 0, "piano": 0}
         
-        data["records"][date_str][session["type"]] += round(day_sec / 60) # 分単位で保存
+        # 秒単位の蓄積を許容し、表示時に分にする（精度向上のため）
+        data["records"][date_str][session_type] += duration_sec
         
-        if actual_end == end_time:
-            break
         current_dt = datetime.combine(current_dt.date() + timedelta(days=1), datetime.min.time()).replace(tzinfo=JST)
-
-    data["active_session"] = None
-    save_data(data)
 
 @app.route('/')
 def index():
     data = load_data()
     now = get_now_jst()
     
-    # 自動終了チェック (ページ読み込み時に3時間を超えていたら終了させる)
+    # 3時間制限の自動終了チェック
     if data["active_session"]:
         start_time = datetime.fromisoformat(data["active_session"]["start_time"])
         if (now - start_time).total_seconds() >= MAX_SECONDS:
-            process_session_end(data)
+            stop() # 自動終了
             data = load_data()
 
     selected_date = request.args.get('date', now.strftime('%Y-%m-%d'))
-    
-    # 表示用データ
     day_record = data["records"].get(selected_date, {"english": 0, "piano": 0})
     
-    # 日付選択肢（今日から過去30日分）
+    # 秒を分に変換して表示（小数点切り捨て）
+    display_record = {
+        "english": int(day_record["english"] // 60),
+        "piano": int(day_record["piano"] // 60)
+    }
+
     date_options = [(now - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30)]
     
     return render_template('index.html', 
-                           record=day_record, 
+                           record=display_record, 
                            active_session=data["active_session"],
                            selected_date=selected_date,
                            date_options=date_options)
@@ -100,8 +84,32 @@ def start():
 @app.route('/stop', methods=['POST'])
 def stop():
     data = load_data()
-    process_session_end(data)
+    if data["active_session"]:
+        start_time = datetime.fromisoformat(data["active_session"]["start_time"])
+        now = get_now_jst()
+        end_time = min(now, start_time + timedelta(seconds=MAX_SECONDS))
+        
+        calculate_and_add(data, data["active_session"]["type"], start_time, end_time)
+        data["active_session"] = None
+        save_data(data)
     return redirect(url_for('index'))
+
+@app.route('/update_midway', methods=['POST'])
+def update_midway():
+    """バックグラウンドで途中経過を保存するAPI"""
+    data = load_data()
+    if data["active_session"]:
+        start_time = datetime.fromisoformat(data["active_session"]["start_time"])
+        now = get_now_jst()
+        
+        # 3時間を超えていないかチェック
+        if (now - start_time).total_seconds() <= MAX_SECONDS:
+            # 今回の増分を計算して保存し、開始時刻を「今」に更新する
+            calculate_and_add(data, data["active_session"]["type"], start_time, now)
+            data["active_session"]["start_time"] = now.isoformat()
+            save_data(data)
+            return jsonify({"status": "success"})
+    return jsonify({"status": "no_active_session"})
 
 if __name__ == '__main__':
     app.run(debug=True)
