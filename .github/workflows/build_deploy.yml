@@ -2,7 +2,7 @@
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 # More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 
-name: Build and deploy Python app to Azure Web App - utilitytool-wadayym
+name: Build and deploy Python app to Azure Web App - time-tracking-wadayym
 
 on:
   workflow_dispatch:
@@ -63,6 +63,6 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@0b651ed7546ecfc75024011f76944cb9b381ef1e
         with:
-          app-name: 'record-wadayym'
+          app-name: 'time-tracking-wadayym'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
