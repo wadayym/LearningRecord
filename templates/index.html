@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学習・ピアノ記録</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f4f7f6; }
+        .card { background: white; padding: 20px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 300px; }
+        .status { font-weight: bold; color: #e74c3c; margin: 20px 0; }
+        .time-display { font-size: 1.2em; margin: 10px 0; }
+        select, button { padding: 10px; font-size: 1em; margin: 5px; cursor: pointer; }
+        .btn-start { background-color: #2ecc71; color: white; border: none; border-radius: 5px; }
+        .btn-stop { background-color: #e74c3c; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>学習・練習記録</h2>
+
+    <!-- 日付選択 -->
+    <form method="get" action="/">
+        <select name="date" onchange="this.form.submit()">
+            {% for date in date_options %}
+            <option value="{{ date }}" {% if date == selected_date %}selected{% endif %}>{{ date }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
+    <hr>
+
+    <!-- 時間表示 -->
+    <div class="time-display">
+        <p>英語学習: {{ record.english }} 分</p>
+        <p>ピアノ練習: {{ record.piano }} 分</p>
+    </div>
+
+    <hr>
+
+    <!-- ステータスと操作 -->
+    {% if active_session %}
+        <div class="status">
+            {{ "英語学習中" if active_session.type == 'english' else "ピアノ練習中" }}
+            <br><small>(最大3時間で自動停止します)</small>
+        </div>
+        <form method="post" action="/stop">
+            <button type="submit" class="btn-stop">終了する</button>
+        </form>
+    {% else %}
+        <form method="post" action="/start" style="display: inline-block;">
+            <input type="hidden" name="type" value="english">
+            <button type="submit" class="btn-start">英語学習 開始</button>
+        </form>
+        <form method="post" action="/start" style="display: inline-block;">
+            <input type="hidden" name="type" value="piano">
+            <button type="submit" class="btn-start">ピアノ練習 開始</button>
+        </form>
+    {% endif %}
+</div>
+
+<script>
+    // 実行中の場合は1分ごとにリロードして自動終了や表示を更新
+    {% if active_session %}
+    setTimeout(function(){
+        location.reload();
+    }, 60000); 
+    {% endif %}
+</script>
+
+</body>
+</html>
