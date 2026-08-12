@@ -5,14 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>学習・練習記録</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f4f7f6; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 350px; }
+        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f4f7f6; color: #333; }
+        .card { background: white; padding: 20px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: min(100%, 420px); box-sizing: border-box; }
         .status { font-weight: bold; color: #e74c3c; margin: 20px 0; font-size: 1.2em; }
         .time-display { font-size: 1.3em; margin: 15px 0; background: #f9f9f9; padding: 10px; border-radius: 8px; }
         .time-val { font-size: 1.5em; font-weight: bold; color: #2c3e50; }
         select, button { padding: 12px; font-size: 1em; margin: 5px; cursor: pointer; }
-        .btn-start { background-color: #2ecc71; color: white; border: none; border-radius: 5px; width: 160px; }
-        .btn-stop { background-color: #e74c3c; color: white; border: none; border-radius: 5px; width: 200px; }
+        .btn-start { background-color: #2ecc71; color: white; border: none; border-radius: 5px; min-width: 160px; }
+        .btn-stop { background-color: #e74c3c; color: white; border: none; border-radius: 5px; min-width: 200px; }
+        .button-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        .button-row form { flex: 1 1 140px; min-width: 140px; }
+        .button-row button { width: 100%; }
+        @media (max-width: 420px) {
+            body { padding-top: 30px; }
+            .time-display { font-size: 1.2em; }
+            .btn-stop { min-width: auto; }
+            .btn-start { min-width: auto; }
+        }
     </style>
 </head>
 <body>
@@ -45,12 +54,12 @@
             <button type="submit" class="btn-stop">終了して保存</button>
         </form>
     {% else %}
-        <div style="margin-top: 20px;">
-            <form method="post" action="/start" style="display: inline-block;">
+        <div class="button-row" style="margin-top: 20px;">
+            <form method="post" action="/start">
                 <input type="hidden" name="type" value="english">
                 <button type="submit" class="btn-start">英語学習 開始</button>
             </form>
-            <form method="post" action="/start" style="display: inline-block;">
+            <form method="post" action="/start">
                 <input type="hidden" name="type" value="piano">
                 <button type="submit" class="btn-start">ピアノ練習 開始</button>
             </form>

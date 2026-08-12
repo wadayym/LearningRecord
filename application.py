@@ -112,4 +112,4 @@ def update_midway():
     return jsonify({"status": "no_active_session"})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
