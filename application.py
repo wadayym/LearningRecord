@@ -23,6 +23,12 @@ def save_data(data):
 def get_now_jst():
     return datetime.now(JST)
 
+def format_minutes(total_minutes):
+    total_minutes = int(total_minutes)
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    return f"{hours}時間{minutes}分"
+
 def calculate_and_add(data, session_type, start_dt, end_dt):
     """時間を計算して日付ごとに配分する共通ロジック"""
     current_dt = start_dt
@@ -59,7 +65,9 @@ def index():
     # 秒を分に変換して表示（小数点切り捨て）
     display_record = {
         "english": int(day_record["english"] // 60),
-        "piano": int(day_record["piano"] // 60)
+        "piano": int(day_record["piano"] // 60),
+        "english_text": format_minutes(int(day_record["english"] // 60)),
+        "piano_text": format_minutes(int(day_record["piano"] // 60))
     }
 
     date_options = [(now - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30)]

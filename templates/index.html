@@ -38,8 +38,8 @@
     </form>
 
     <div class="time-display">
-        <p>英語学習: <span id="eng-display" class="time-val">{{ record.english }}</span> 分</p>
-        <p>ピアノ練習: <span id="piano-display" class="time-val">{{ record.piano }}</span> 分</p>
+        <p>英語学習: <span id="eng-display" class="time-val">{{ record.english_text }}</span></p>
+        <p>ピアノ練習: <span id="piano-display" class="time-val">{{ record.piano_text }}</span></p>
     </div>
 
     {% if active_session %}
@@ -75,6 +75,12 @@
     const displayElement = document.getElementById(sessionType === 'english' ? 'eng-display' : 'piano-display');
     const timerElement = document.getElementById('timer');
 
+    function formatMinutes(totalMinutes) {
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return `${hours}時間${minutes}分`;
+    }
+
     function updateTimer() {
         const now = new Date();
         const diffSec = Math.floor((now - startTime) / 1000);
@@ -86,7 +92,7 @@
 
         // 画面上の合計分を更新
         const currentTotalMin = baseMinutes + Math.floor(diffSec / 60);
-        displayElement.innerText = currentTotalMin;
+        displayElement.innerText = formatMinutes(currentTotalMin);
 
         // 経過時間を hh:mm:ss 形式で表示
         const h = String(Math.floor(diffSec / 3600)).padStart(2, '0');
