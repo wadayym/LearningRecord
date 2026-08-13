@@ -9,6 +9,11 @@ Azure Portal で以下を設定：
 3. スタートアップの登録
 - Azure Portal → App Service → 設定 → 構成 → スタートアップ コマンド　scripts/startup.sh
 
+3-2. 永続データの保存先を設定
+- Azure Portal → App Service → 設定 → 構成 → アプリ設定
+- 追加: `LEARNING_RECORD_DATA_FILE` = `/home/site/data/data.json`
+- これにより、デプロイ時にアプリ本体のコードが上書きされても `data.json` は保持されます。
+
 4. Azure の発行プロファイルを GitHub に登録
 - Azure Portal → App Service → 設定 → 構成 → SCM 基本認証の発行資格情報 ON
 - Azure Portal → App Service → 「発行プロファイルを取得」

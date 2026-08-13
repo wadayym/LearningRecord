@@ -6,9 +6,26 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 
 app = Flask(__name__)
 
-DATA_FILE = 'data.json'
+DEFAULT_DATA_FILE = 'data.json'
 JST = pytz.timezone('Asia/Tokyo')
 MAX_SECONDS = 3 * 60 * 60
+
+
+def get_data_file_path():
+    env_path = os.getenv('LEARNING_RECORD_DATA_FILE')
+    if env_path:
+        return env_path
+
+    home_dir = os.path.expanduser('~')
+    if home_dir:
+        candidate = os.path.join(home_dir, 'learningrecord', 'data.json')
+        return candidate
+
+    return DEFAULT_DATA_FILE
+
+
+DATA_FILE = get_data_file_path()
+
 
 def load_data():
     if os.path.exists(DATA_FILE):
@@ -17,6 +34,9 @@ def load_data():
     return {"records": {}, "active_session": None}
 
 def save_data(data):
+    directory = os.path.dirname(DATA_FILE)
+    if directory and not os.path.exists(directory):
+        os.makedirs(directory, exist_ok=True)
     with open(DATA_FILE, 'w') as f:
         json.dump(data, f, indent=4)
 
