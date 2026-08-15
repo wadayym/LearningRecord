@@ -49,23 +49,53 @@ def format_minutes(total_minutes):
     minutes = total_minutes % 60
     return f"{hours}時間{minutes}分"
 
+def normalize_dt(dt):
+    return dt.astimezone(JST).replace(microsecond=0)
+
+
+def make_jst_datetime(date_obj, time_obj):
+    naive = datetime.combine(date_obj, time_obj)
+    return JST.localize(naive)
+
+
 def calculate_and_add(data, session_type, start_dt, end_dt):
     """時間を計算して日付ごとに配分する共通ロジック"""
+    start_dt = normalize_dt(start_dt)
+    end_dt = normalize_dt(end_dt)
+
+    if end_dt <= start_dt:
+        return
+
     current_dt = start_dt
     while current_dt < end_dt:
-        day_end = datetime.combine(current_dt.date(), datetime.max.time()).replace(tzinfo=JST)
-        actual_end = min(end_dt, day_end)
-        
-        duration_sec = (actual_end - current_dt).total_seconds()
+        next_day_start = make_jst_datetime(current_dt.date() + timedelta(days=1), datetime.min.time())
+        actual_end = min(end_dt, next_day_start)
+
+        duration_sec = int((actual_end - current_dt).total_seconds())
         date_str = current_dt.strftime('%Y-%m-%d')
-        
+
         if date_str not in data["records"]:
             data["records"][date_str] = {"english": 0, "piano": 0}
-        
-        # 秒単位の蓄積を許容し、表示時に分にする（精度向上のため）
+
         data["records"][date_str][session_type] += duration_sec
-        
-        current_dt = datetime.combine(current_dt.date() + timedelta(days=1), datetime.min.time()).replace(tzinfo=JST)
+
+        current_dt = next_day_start
+
+
+def advance_active_session(data, now=None):
+    """最後のチェックポイントからの差分だけを加算し、重複計算を防ぐ"""
+    if not data.get("active_session"):
+        return data
+
+    session = data["active_session"]
+    checkpoint_time = normalize_dt(datetime.fromisoformat(session.get("last_checkpoint_time", session["start_time"])))
+    now = normalize_dt(now or get_now_jst())
+
+    if now > checkpoint_time:
+        calculate_and_add(data, session["type"], checkpoint_time, now)
+
+    session["last_checkpoint_time"] = now.isoformat()
+    return data
 
 @app.route('/')
 def index():
@@ -102,9 +132,11 @@ def index():
 def start():
     data = load_data()
     if not data["active_session"]:
+        now = get_now_jst()
         data["active_session"] = {
             "type": request.form.get('type'),
-            "start_time": get_now_jst().isoformat()
+            "start_time": now.isoformat(),
+            "last_checkpoint_time": now.isoformat()
         }
         save_data(data)
     return redirect(url_for('index'))
@@ -116,8 +148,8 @@ def stop():
         start_time = datetime.fromisoformat(data["active_session"]["start_time"])
         now = get_now_jst()
         end_time = min(now, start_time + timedelta(seconds=MAX_SECONDS))
-        
-        calculate_and_add(data, data["active_session"]["type"], start_time, end_time)
+
+        advance_active_session(data, end_time)
         data["active_session"] = None
         save_data(data)
     return redirect(url_for('index'))
@@ -129,12 +161,10 @@ def update_midway():
     if data["active_session"]:
         start_time = datetime.fromisoformat(data["active_session"]["start_time"])
         now = get_now_jst()
-        
+
         # 3時間を超えていないかチェック
         if (now - start_time).total_seconds() <= MAX_SECONDS:
-            # 今回の増分を計算して保存し、開始時刻を「今」に更新する
-            calculate_and_add(data, data["active_session"]["type"], start_time, now)
-            data["active_session"]["start_time"] = now.isoformat()
+            advance_active_session(data, now)
             save_data(data)
             return jsonify({"status": "success"})
     return jsonify({"status": "no_active_session"})
