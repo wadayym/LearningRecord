@@ -20,8 +20,10 @@
         .toolbar select { padding: 8px 12px; font-size: 1em; border: 1px solid #ccd5d8; border-radius: 6px; background: white; }
         .chart-layout { display: flex; width: 100%; max-width: 100%; margin: 0 auto; }
         #y-axis { display: block; flex: 0 0 58px; background: white; }
-        .chart-scroll { flex: 1 1 auto; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+        .chart-viewport { position: relative; flex: 1 1 auto; min-width: 0; }
+        .chart-scroll { width: 100%; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
         #chart { display: block; max-width: none; }
+        .chart-total { position: absolute; top: 4px; left: 8px; z-index: 1; padding: 3px 6px; border-radius: 4px; background: rgba(255,255,255,0.9); color: #2c3e50; font-size: 0.9em; font-weight: bold; pointer-events: none; }
         .chart-help { margin: 8px 0 0; color: #68777c; font-size: 0.9em; text-align: right; }
         .back-link { display: inline-block; margin-top: 20px; color: #2878a5; }
         @media (max-width: 600px) {
@@ -57,8 +59,11 @@
     </div>
     <div class="chart-layout" role="region" aria-label="{{ title }}の時間グラフ。横にスクロールできます">
         <svg id="y-axis" role="img" aria-label="時間の縦軸"></svg>
-        <div class="chart-scroll" id="chart-scroll">
-        <svg id="chart" role="img" aria-label="{{ title }}の学習時間"></svg>
+        <div class="chart-viewport">
+            <div class="chart-scroll" id="chart-scroll">
+                <svg id="chart" role="img" aria-label="{{ title }}の学習時間"></svg>
+            </div>
+            <output class="chart-total" aria-label="グラフの総計">総計: {{ chart_total_text }}時間</output>
         </div>
     </div>
     <p class="chart-help">横にスクロールして過去の実績を確認できます。</p>

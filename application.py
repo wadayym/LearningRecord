@@ -208,6 +208,8 @@ def stats(session_type):
         period,
         get_now_jst().date(),
     )
+    chart_total = sum(item['hours'] for item in chart_data)
+    chart_total_text = f'{chart_total:,.2f}'.rstrip('0').rstrip('.')
     titles = {'english': '英語学習', 'piano': 'ピアノ練習'}
     return render_template(
         'stats.html',
@@ -215,6 +217,7 @@ def stats(session_type):
         title=titles[session_type],
         period=period,
         chart_data=chart_data,
+        chart_total_text=chart_total_text,
     )
 
 
@@ -260,4 +263,5 @@ def update_midway():
     return jsonify({"status": "no_active_session"})
 
 if __name__ == '__main__':
+    print(f'Using data file: {DATA_FILE}', flush=True)
     app.run(debug=False)

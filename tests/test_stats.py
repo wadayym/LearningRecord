@@ -1,5 +1,6 @@
 import json
 from datetime import date, datetime
+from pathlib import Path
 
 import pytz
 
@@ -77,6 +78,28 @@ def test_stats_route_renders_selected_period_and_category(tmp_path, monkeypatch)
     assert response.status_code == 200
     assert '英語学習の実績' in response_text
     assert '<option value="month" selected>' in response_text
+    assert '<output class="chart-total" aria-label="グラフの総計">総計: 1時間</output>' in response_text
+
+
+def test_stats_route_renders_sample_data_totals_and_recent_daily_bars(monkeypatch):
+    monkeypatch.setattr(
+        application,
+        'DATA_FILE',
+        str(Path(__file__).resolve().parents[1] / 'sample_data.json'),
+    )
+    monkeypatch.setattr(
+        application,
+        'get_now_jst',
+        lambda: pytz.timezone('Asia/Tokyo').localize(datetime(2026, 10, 22)),
+    )
+
+    response = application.app.test_client().get('/stats/english?period=day')
+    response_text = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert '総計: 28.25時間' in response_text
+    assert '"hours": 1.25' in response_text
+    assert '"label": "10/22"' in response_text
 
 
 def test_stats_route_rejects_unknown_category_and_period():
