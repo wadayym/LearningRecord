@@ -1,8 +1,8 @@
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import pytz
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, abort, render_template, request, redirect, url_for, jsonify
 
 app = Flask(__name__)
 
@@ -56,6 +56,69 @@ def normalize_dt(dt):
 def make_jst_datetime(date_obj, time_obj):
     naive = datetime.combine(date_obj, time_obj)
     return JST.localize(naive)
+
+
+def build_chart_data(records, session_type, period, today):
+    """記録を日・月・年ごとの時間に集計する"""
+    if period == 'day':
+        record_periods = [date.fromisoformat(value) for value in records]
+        first_period = min(
+            min(record_periods, default=today),
+            today - timedelta(days=11),
+        )
+        periods = []
+        current_period = first_period
+        while current_period <= today:
+            periods.append(current_period)
+            current_period += timedelta(days=1)
+        period_label = lambda value: f'{value.month}/{value.day}'
+        period_key = lambda value: value.isoformat()
+    elif period == 'month':
+        record_periods = [
+            date.fromisoformat(value).replace(day=1) for value in records
+        ]
+        current_period = today.replace(day=1)
+        earliest_record = min(record_periods, default=current_period)
+        earliest_twelve_months = date(
+            (today.year * 12 + today.month - 12) // 12,
+            (today.year * 12 + today.month - 12) % 12 + 1,
+            1,
+        )
+        first_date = min(earliest_record, earliest_twelve_months)
+        periods = []
+        while current_period >= first_date:
+            periods.append(current_period)
+            current_period = (current_period - timedelta(days=1)).replace(day=1)
+        periods.reverse()
+        period_label = lambda value: f'{value.year}/{value.month}'
+        period_key = lambda value: value.strftime('%Y-%m')
+    elif period == 'year':
+        record_years = [
+            date.fromisoformat(value).year for value in records
+        ]
+        first_year = min(min(record_years, default=today.year), today.year - 11)
+        periods = list(range(first_year, today.year + 1))
+        period_label = lambda value: f'{value}年'
+        period_key = lambda value: str(value)
+    else:
+        raise ValueError(f'Unsupported chart period: {period}')
+
+    totals = {period_key(value): 0 for value in periods}
+    for date_string, record in records.items():
+        record_date = date.fromisoformat(date_string)
+        if period == 'day':
+            key = record_date.isoformat()
+        elif period == 'month':
+            key = record_date.strftime('%Y-%m')
+        else:
+            key = str(record_date.year)
+        if key in totals:
+            totals[key] += record.get(session_type, 0) / 3600
+
+    return [
+        {'label': period_label(value), 'hours': round(totals[period_key(value)], 2)}
+        for value in periods
+    ]
 
 
 def calculate_and_add(data, session_type, start_dt, end_dt):
@@ -127,6 +190,33 @@ def index():
                            active_session=data["active_session"],
                            selected_date=selected_date,
                            date_options=date_options)
+
+
+@app.route('/stats/<session_type>')
+def stats(session_type):
+    if session_type not in ('english', 'piano'):
+        abort(404)
+
+    period = request.args.get('period', 'day')
+    if period not in ('day', 'month', 'year'):
+        abort(404)
+
+    data = load_data()
+    chart_data = build_chart_data(
+        data.get('records', {}),
+        session_type,
+        period,
+        get_now_jst().date(),
+    )
+    titles = {'english': '英語学習', 'piano': 'ピアノ練習'}
+    return render_template(
+        'stats.html',
+        session_type=session_type,
+        title=titles[session_type],
+        period=period,
+        chart_data=chart_data,
+    )
+
 
 @app.route('/start', methods=['POST'])
 def start():

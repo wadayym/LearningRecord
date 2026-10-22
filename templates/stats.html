@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}の実績 - 学習・練習記録</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 24px; background: #f4f7f6; color: #333; }
+        .page { position: relative; max-width: 1000px; margin: 0 auto; padding: 24px; border-radius: 10px; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.08); box-sizing: border-box; }
+        .menu { position: absolute; top: 18px; right: 24px; z-index: 2; }
+        .menu summary { display: grid; place-items: center; list-style: none; width: 42px; height: 42px; padding: 0; border: 1px solid #d5dcdf; border-radius: 6px; background: white; cursor: pointer; }
+        .menu summary svg { width: 22px; height: 22px; }
+        .menu summary::-webkit-details-marker { display: none; }
+        .menu nav { position: absolute; top: calc(100% + 5px); right: 0; min-width: 130px; padding: 6px; border: 1px solid #d5dcdf; border-radius: 6px; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.12); }
+        .menu a { display: block; padding: 9px 10px; border-radius: 4px; color: #2c3e50; text-decoration: none; }
+        .menu a:hover { background: #f1f5f6; }
+        .page-title { margin: 0 110px 24px 0; color: #2c3e50; }
+        .toolbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 8px; }
+        .toolbar label { margin-right: 8px; font-size: 0.95em; }
+        .toolbar select { padding: 8px 12px; font-size: 1em; border: 1px solid #ccd5d8; border-radius: 6px; background: white; }
+        .chart-layout { display: flex; width: 100%; max-width: 100%; margin: 0 auto; }
+        #y-axis { display: block; flex: 0 0 58px; background: white; }
+        .chart-scroll { flex: 1 1 auto; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+        #chart { display: block; max-width: none; }
+        .chart-help { margin: 8px 0 0; color: #68777c; font-size: 0.9em; text-align: right; }
+        .back-link { display: inline-block; margin-top: 20px; color: #2878a5; }
+        @media (max-width: 600px) {
+            body { padding: 12px; }
+            .page { padding: 18px 12px; }
+            .menu { top: 12px; right: 12px; }
+            .page-title { margin: 8px 0 24px; padding-top: 42px; font-size: 1.5em; }
+            .chart-help { text-align: left; }
+        }
+    </style>
+</head>
+<body>
+<main class="page">
+    <details class="menu">
+        <summary aria-label="メニュー" title="メニュー">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </summary>
+        <nav aria-label="実績ページ">
+            <a href="{{ url_for('stats', session_type='english') }}">英語</a>
+            <a href="{{ url_for('stats', session_type='piano') }}">ピアノ</a>
+        </nav>
+    </details>
+    <h1 class="page-title">{{ title }}の実績</h1>
+    <div class="toolbar">
+        <label for="period">表示単位</label>
+        <select id="period" aria-label="グラフの表示単位">
+            <option value="day" {% if period == 'day' %}selected{% endif %}>日</option>
+            <option value="month" {% if period == 'month' %}selected{% endif %}>月</option>
+            <option value="year" {% if period == 'year' %}selected{% endif %}>年</option>
+        </select>
+    </div>
+    <div class="chart-layout" role="region" aria-label="{{ title }}の時間グラフ。横にスクロールできます">
+        <svg id="y-axis" role="img" aria-label="時間の縦軸"></svg>
+        <div class="chart-scroll" id="chart-scroll">
+        <svg id="chart" role="img" aria-label="{{ title }}の学習時間"></svg>
+        </div>
+    </div>
+    <p class="chart-help">横にスクロールして過去の実績を確認できます。</p>
+    <a class="back-link" href="{{ url_for('index') }}">記録画面へ戻る</a>
+</main>
+<script>
+    const chartData = {{ chart_data|tojson }};
+    const chart = document.getElementById('chart');
+    const yAxis = document.getElementById('y-axis');
+    const scrollArea = document.getElementById('chart-scroll');
+    const periodSelect = document.getElementById('period');
+    const period = {{ period|tojson }};
+    const chartHeight = 340;
+    const leftPadding = 58;
+    const rightPadding = 20;
+    const topPadding = 18;
+    const maxHours = Math.max(0, ...chartData.map(item => item.hours));
+    const tickStep = Math.max(1, Math.ceil(maxHours / 5));
+    const axisMax = Math.max(tickStep, Math.ceil(maxHours / tickStep) * tickStep);
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+
+    function addSvgElement(container, name, attributes, text) {
+        const element = document.createElementNS(svgNamespace, name);
+        Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+        if (text !== undefined) element.textContent = text;
+        container.appendChild(element);
+        return element;
+    }
+
+    function renderChart() {
+        const defaultBarSpacing = period === 'day' ? 56 : 72;
+        const visibleBars = Math.min(12, chartData.length);
+        const fitBarSpacing = (scrollArea.clientWidth - rightPadding) / visibleBars;
+        const barSpacing = Math.min(defaultBarSpacing, fitBarSpacing);
+        const rotateLabels = barSpacing < 32;
+        const bottomPadding = rotateLabels ? 104 : 64;
+        const plotHeight = chartHeight - topPadding - bottomPadding;
+        const barWidth = Math.max(8, Math.min(period === 'day' ? 28 : 38, barSpacing * 0.68));
+        const chartWidth = chartData.length * barSpacing + rightPadding;
+        const labelFontSize = rotateLabels ? 8 : 11;
+
+        chart.replaceChildren();
+        yAxis.replaceChildren();
+        chart.setAttribute('width', chartWidth);
+        chart.setAttribute('height', chartHeight);
+        chart.setAttribute('viewBox', `0 0 ${chartWidth} ${chartHeight}`);
+        yAxis.setAttribute('width', leftPadding);
+        yAxis.setAttribute('height', chartHeight);
+        yAxis.setAttribute('viewBox', `0 0 ${leftPadding} ${chartHeight}`);
+
+        for (let hours = 0; hours <= axisMax; hours += tickStep) {
+            const y = topPadding + plotHeight - (hours / axisMax) * plotHeight;
+            addSvgElement(chart, 'line', {
+                x1: 0, y1: y, x2: chartWidth - rightPadding, y2: y,
+                stroke: '#e3e9eb', 'stroke-width': 1
+            });
+            addSvgElement(yAxis, 'text', {
+                x: leftPadding - 10, y: y + 4, 'text-anchor': 'end',
+                fill: '#68777c', 'font-size': 12
+            }, String(hours));
+        }
+
+        addSvgElement(yAxis, 'text', {
+            x: 15, y: topPadding + plotHeight / 2,
+            transform: `rotate(-90 15 ${topPadding + plotHeight / 2})`,
+            'text-anchor': 'middle', fill: '#4e5d62', 'font-size': 13
+        });
+
+        chartData.forEach((item, index) => {
+            const x = index * barSpacing + (barSpacing - barWidth) / 2;
+            const barHeight = (item.hours / axisMax) * plotHeight;
+            const y = topPadding + plotHeight - barHeight;
+            const bar = addSvgElement(chart, 'rect', {
+                x, y, width: barWidth, height: Math.max(0, barHeight),
+                rx: 4, fill: '#4a9b88'
+            });
+            const title = document.createElementNS(svgNamespace, 'title');
+            title.textContent = `${item.label}: ${item.hours}時間`;
+            bar.appendChild(title);
+
+            const dateLabelX = x + barWidth / 2;
+            const dateLabelY = rotateLabels
+                ? chartHeight - bottomPadding + 18
+                : chartHeight - bottomPadding + 20;
+            addSvgElement(chart, 'text', {
+                x: dateLabelX,
+                y: dateLabelY,
+                transform: rotateLabels ? `rotate(-90 ${dateLabelX} ${dateLabelY})` : '',
+                'text-anchor': rotateLabels ? 'end' : 'middle',
+                fill: '#4e5d62',
+                'font-size': labelFontSize
+            }, item.label);
+            if (item.hours > 0) {
+                const valueLabelX = x + barWidth / 2;
+                const valueLabelY = y - 6;
+                addSvgElement(chart, 'text', {
+                    x: valueLabelX,
+                    y: valueLabelY,
+                    transform: rotateLabels ? `rotate(-90 ${valueLabelX} ${valueLabelY})` : '',
+                    'text-anchor': rotateLabels ? 'start' : 'middle',
+                    fill: '#2c3e50',
+                    'font-size': rotateLabels ? 9 : 10
+                }, String(item.hours));
+            }
+        });
+
+        scrollArea.scrollLeft = scrollArea.scrollWidth;
+    }
+
+    renderChart();
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(renderChart, 100);
+    });
+    periodSelect.addEventListener('change', () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('period', periodSelect.value);
+        window.location.href = url.toString();
+    });
+</script>
+</body>
+</html>

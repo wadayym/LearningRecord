@@ -6,7 +6,14 @@
     <title>学習・練習記録</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f4f7f6; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: min(100%, 420px); box-sizing: border-box; }
+        .card { position: relative; background: white; padding: 20px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: min(100%, 420px); box-sizing: border-box; }
+        .menu { position: absolute; top: 12px; right: 12px; z-index: 2; text-align: left; }
+        .menu summary { display: grid; place-items: center; list-style: none; width: 42px; height: 42px; padding: 0; border: 1px solid #d5dcdf; border-radius: 6px; background: white; cursor: pointer; }
+        .menu summary svg { width: 22px; height: 22px; }
+        .menu summary::-webkit-details-marker { display: none; }
+        .menu nav { position: absolute; top: calc(100% + 5px); right: 0; min-width: 130px; padding: 6px; border: 1px solid #d5dcdf; border-radius: 6px; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.12); }
+        .menu a { display: block; padding: 9px 10px; border-radius: 4px; color: #2c3e50; text-decoration: none; }
+        .menu a:hover { background: #f1f5f6; }
         .status { font-weight: bold; color: #e74c3c; margin: 20px 0; font-size: 1.2em; }
         .time-display { font-size: 1.3em; margin: 15px 0; background: #f9f9f9; padding: 10px; border-radius: 8px; }
         .time-val { font-size: 1.5em; font-weight: bold; color: #2c3e50; }
@@ -27,6 +34,17 @@
 <body>
 
 <div class="card">
+    <details class="menu">
+        <summary aria-label="メニュー" title="メニュー">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </summary>
+        <nav aria-label="実績ページ">
+            <a href="{{ url_for('stats', session_type='english') }}">英語</a>
+            <a href="{{ url_for('stats', session_type='piano') }}">ピアノ</a>
+        </nav>
+    </details>
     <h2>学習・練習記録</h2>
 
     <form method="get" action="/">
