@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pytz
+import pytest
 
 from application import advance_active_session
 
@@ -65,6 +66,25 @@ def test_advance_active_session_fills_missing_category_in_existing_record():
         'english': 30,
         'piano': 60,
     }
+
+
+@pytest.mark.parametrize('session_type', [None, 'unknown'])
+def test_advance_active_session_defaults_unknown_type_to_piano(session_type):
+    data = {
+        'records': {},
+        'active_session': {
+            'type': session_type,
+            'start_time': '2026-08-14T10:00:00+09:00',
+            'last_checkpoint_time': '2026-08-14T10:00:00+09:00',
+        },
+    }
+
+    now = JST.localize(datetime(2026, 8, 14, 10, 1))
+
+    result = advance_active_session(data, now)
+
+    assert result['records']['2026-08-14'] == {'english': 0, 'piano': 60}
+    assert result['active_session']['type'] == 'piano'
 
 
 def test_start_rejects_unknown_session_type():

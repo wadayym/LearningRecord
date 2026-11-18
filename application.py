@@ -157,11 +157,20 @@ def advance_active_session(data, now=None):
         return data
 
     session = data["active_session"]
+    session_type = session.get("type")
+    if session_type not in ("english", "piano"):
+        app.logger.warning(
+            "Active session has unsupported type %r; defaulting to 'piano'.",
+            session_type,
+        )
+        session_type = "piano"
+        session["type"] = session_type
+
     checkpoint_time = normalize_dt(datetime.fromisoformat(session.get("last_checkpoint_time", session["start_time"])))
     now = normalize_dt(now or get_now_jst())
 
     if now > checkpoint_time:
-        calculate_and_add(data, session["type"], checkpoint_time, now)
+        calculate_and_add(data, session_type, checkpoint_time, now)
 
     session["last_checkpoint_time"] = now.isoformat()
     return data
