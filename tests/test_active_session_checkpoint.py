@@ -43,3 +43,33 @@ def test_advance_active_session_splits_across_midnight_without_double_counting()
     assert result['records']['2026-08-14']['english'] == 1800.0
     assert result['records']['2026-08-15']['english'] == 900.0
     assert result['active_session']['last_checkpoint_time'] == now.isoformat()
+
+
+def test_advance_active_session_fills_missing_category_in_existing_record():
+    data = {
+        'records': {
+            '2026-08-14': {'english': 30},
+        },
+        'active_session': {
+            'type': 'piano',
+            'start_time': '2026-08-14T10:00:00+09:00',
+            'last_checkpoint_time': '2026-08-14T10:00:00+09:00',
+        },
+    }
+
+    now = JST.localize(datetime(2026, 8, 14, 10, 1))
+
+    result = advance_active_session(data, now)
+
+    assert result['records']['2026-08-14'] == {
+        'english': 30,
+        'piano': 60,
+    }
+
+
+def test_start_rejects_unknown_session_type():
+    from application import app
+
+    response = app.test_client().post('/start', data={'type': 'unknown'})
+
+    assert response.status_code == 400

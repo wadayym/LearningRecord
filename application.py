@@ -123,6 +123,9 @@ def build_chart_data(records, session_type, period, today):
 
 def calculate_and_add(data, session_type, start_dt, end_dt):
     """時間を計算して日付ごとに配分する共通ロジック"""
+    if session_type not in ('english', 'piano'):
+        raise ValueError(f'Unsupported session type: {session_type}')
+
     start_dt = normalize_dt(start_dt)
     end_dt = normalize_dt(end_dt)
 
@@ -137,10 +140,13 @@ def calculate_and_add(data, session_type, start_dt, end_dt):
         duration_sec = int((actual_end - current_dt).total_seconds())
         date_str = current_dt.strftime('%Y-%m-%d')
 
-        if date_str not in data["records"]:
-            data["records"][date_str] = {"english": 0, "piano": 0}
+        record = data["records"].setdefault(
+            date_str, {"english": 0, "piano": 0}
+        )
+        record.setdefault("english", 0)
+        record.setdefault("piano", 0)
 
-        data["records"][date_str][session_type] += duration_sec
+        record[session_type] += duration_sec
 
         current_dt = next_day_start
 
@@ -223,11 +229,15 @@ def stats(session_type):
 
 @app.route('/start', methods=['POST'])
 def start():
+    session_type = request.form.get('type')
+    if session_type not in ('english', 'piano'):
+        abort(400)
+
     data = load_data()
     if not data["active_session"]:
         now = get_now_jst()
         data["active_session"] = {
-            "type": request.form.get('type'),
+            "type": session_type,
             "start_time": now.isoformat(),
             "last_checkpoint_time": now.isoformat()
         }
